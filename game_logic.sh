@@ -1,121 +1,125 @@
 #!/bin/bash
 
+# --- Odczyt liczby symboli ---
+get_config_info() {
+    local FILE="$1"
+    if [[ -f "$FILE" ]]; then
+        local SYMBOLS=($(tr ' ' '\n' < "$FILE" | sort -u))
+        echo "${#SYMBOLS[@]}"
+    else
+        echo "-1"
+    fi
+}
+
+# --- Tworzenie i sortowanie kart do gry ---
 create_deck() {
     local FILE="$1"
     local TOTAL_REQUIRED=$2
     local UNIQUE_REQUIRED=$((TOTAL_REQUIRED / 2))
     
     if [[ -f "$FILE" ]]; then
-        # Read all symbols into an array
-        read -r -a ALL_SYMBOLS < "$FILE"
+        read -r -a ALL_SYMBOLS <<< "$(tr ' ' '\n' < "$FILE" | sort -u | tr '\n' ' ')"
     else
         echo "Error: Config file not found" >&2
         return 1
     fi
 
-    # Check if we have enough unique symbols in the file
     if [[ ${#ALL_SYMBOLS[@]} -lt $UNIQUE_REQUIRED ]]; then
         echo "Error: Not enough symbols in $FILE. Need $UNIQUE_REQUIRED." >&2
         return 1
     fi
 
-    # Take only the number of unique symbols we need
     local SELECTED_SYMBOLS=("${ALL_SYMBOLS[@]:0:$UNIQUE_REQUIRED}")
 
     local DECK=()
     for SYMBOL in "${SELECTED_SYMBOLS[@]}"; do
-        # Add twice to make a pair
         DECK+=("$SYMBOL" "$SYMBOL")
     done
 
-    # Shuffle and return
     printf "%s\n" "${DECK[@]}" | shuf
 }
 
 game_loop(){
     while [ $MATCHES_FOUND -lt $MATCHES_NEEDED ]; do
     
-    # We will store the indices of the two cards picked this turn
-    PICKED_INDICES=()
+    PICKED_IDS=()
 
-    while [ ${#PICKED_INDICES[@]} -lt 2 ]; do
-        # 1. Build the Grid Data based on current DECK_MASK
-        grid_data=()
+    # --- pętla wyboru ---
+    while [ ${#PICKED_IDS[@]} -lt 2 ]; do
+
+        # --- Tworzenie planszy na podstawie maski ---
+        GRID_DATA=()
         for ((i=0; i<ROWS; i++)); do
-            grid_data+=("$i") 
+            GRID_DATA+=("$i") 
             for ((j=0; j<COLS; j++)); do
                 idx=$((i * COLS + j))
-                grid_data+=("${DECK_MASK[$idx]}")
+                GRID_DATA+=("${DECK_MASK[$idx]}")
             done
         done
 
-        # 2. SELECT THE ROW
-        selected_row_raw=$(zenity --list \
-            --title="Memory Game - Ruch $((${#PICKED_INDICES[@]} + 1))/2" \
+        # --- okno wyboru wiersza ---
+        SELECTED_ROW=$(zenity --list \
+            --title="Memory Game - Ruch $((${#PICKED_IDS[@]} + 1))/2" \
             --text="Wybierz rząd kart (Znaleziono par: $MATCHES_FOUND/$MATCHES_NEEDED   Liczba tur: $TURNS):" \
             --width=600 --height=500 \
-            "${column_args[@]}" --hide-column=1 --print-column=ALL --separator="|" \
-            "${grid_data[@]}")
+            --hide-header \
+            "${COLUMN_ARGS[@]}" --hide-column=1 --print-column=ALL --separator="|" \
+            "${GRID_DATA[@]}" \
+            --cancel-label="Wyjdź" --ok-label="Wyjdź")
 
-        [[ -z "$selected_row_raw" ]] && exit
+        [[ -z "$SELECTED_ROW" ]] && exit
 
-        IFS='|' read -r -a row_array <<< "$selected_row_raw"
-        ROW_NUM=${row_array[0]}
+        IFS='|' read -r -a ROW_ARRAY <<< "$SELECTED_ROW"
+        ROW_NUM=${ROW_ARRAY[0]}
 
-        # 3. SELECT THE COLUMN
-        # Formatting row content for the question dialog
-        row_display=""
-        for ((i=1; i<${#row_array[@]}; i++)); do row_display+="[Kol $i]: ${row_array[$i]}  "; done
+        # --- okno wyboru kolumny ---
+        ROW_DISPLAY=""
+        for ((i=1; i<${#ROW_ARRAY[@]}; i++)); do ROW_DISPLAY+="[Kol $i]: ${ROW_ARRAY[$i]}  "; done
 
-        cmd=(zenity --question --title="Wybierz kolumnę" \
-            --text="Wybrany rząd: $((ROW_NUM + 1))\nZawartość: $row_display\n\nKtórą kolumnę odkrywasz?" \
-            --cancel-label="Anuluj" --ok-label="Wyjdź")
+        CMD=(zenity --question --title="Wybierz kolumnę" \
+            --text="Wybrany rząd: $((ROW_NUM + 1))\nZawartość: $ROW_DISPLAY\n\nKtórą kolumnę odkrywasz?" \
+            --cancel-label="Wyjdź" --ok-label="Wyjdź")
 
-        for ((j=1; j<=COLS; j++)); do cmd+=( "--extra-button=Kolumna $j" ); done
+        for ((j=1; j<=COLS; j++)); do CMD+=( "--extra-button=Kolumna $j" ); done
 
-        raw_btn=$("${cmd[@]}" 2>&1)
-        exit_status=$?
+        RAW_BTN=$("${CMD[@]}" 2>&1)
+        EXIT_STATUS=$?
 
-        # Exit logic
-        if [[ $exit_status -ne 0 && -z "$raw_btn" ]]; then exit; fi
+        if [[ $EXIT_STATUS -ne 0 && -z "$RAW_BTN" ]]; then exit; fi
         
-        COL_CHOICE=$(echo "$raw_btn" | grep -o '[0-9]\+')
-        [[ -z "$COL_CHOICE" ]] && continue # If they clicked 'Wyjdź' but not a column
+        COL_CHOICE=$(echo "$RAW_BTN" | grep -o '[0-9]\+')
+        [[ -z "$COL_CHOICE" ]] && continue
         
         COL_NUM=$((COL_CHOICE - 1))
-        CURRENT_IDX=$(( (ROW_NUM * COLS) + COL_NUM ))
+        CURRENT_ID=$(( (ROW_NUM * COLS) + COL_NUM ))
 
-        # --- UNCOVER LOGIC ---
-        # Prevent picking the same card twice or picking an already matched card
-        if [[ "${DECK_MASK[$CURRENT_IDX]}" != "❓" ]]; then
+
+        if [[ "${DECK_MASK[$CURRENT_ID]}" != "❓" ]]; then
             zenity --warning --text="Ta karta jest już odkryta! Wybierz inną."
             continue
         fi
 
-        # Update the mask to show the actual card
-        DECK_MASK[$CURRENT_IDX]="${DECK[$CURRENT_IDX]}"
-        PICKED_INDICES+=("$CURRENT_IDX")
+        # --- odkrycie wybranej karty ---
+        DECK_MASK[$CURRENT_ID]="${DECK[$CURRENT_ID]}"
+        PICKED_IDS+=("$CURRENT_ID")
 
-        # Show a quick confirmation of what was uncovered
-        zenity --info --text="Odkryłeś: ${DECK[$CURRENT_IDX]}" --timeout=1
+        zenity --info --text="Odkryłeś: ${DECK[$CURRENT_ID]}" --timeout=1
     done
 
-    # --- MATCH CHECKING ---
-    IDX1=${PICKED_INDICES[0]}
-    IDX2=${PICKED_INDICES[1]}
+    # --- Sprawdzanie kart ---
+    ID_1=${PICKED_IDS[0]}
+    ID_2=${PICKED_IDS[1]}
 
-    if [[ "${DECK[$IDX1]}" == "${DECK[$IDX2]}" ]]; then
-        zenity --info --text="Para! Znalazłeś: ${DECK[$IDX1]}"
+    if [[ "${DECK[$ID_1]}" == "${DECK[$ID_2]}" ]]; then
+        zenity --info --text="Para! Znalazłeś: ${DECK[$ID_1]}"
         ((MATCHES_FOUND++))
     else
-        # Show both cards for a moment so the player can see them
-        zenity --warning --text="Nie pasują!\n\nKarta 1: ${DECK[$IDX1]}\nKarta 2: ${DECK[$IDX2]}" 
+        zenity --warning --text="Nie pasują!\n\nKarta 1: ${DECK[$ID_1]}\nKarta 2: ${DECK[$ID_2]}" 
         
-        # Hide them again in the mask
-        DECK_MASK[$IDX1]="❓"
-        DECK_MASK[$IDX2]="❓"
-    fi
+        DECK_MASK[$ID_1]="❓"
+        DECK_MASK[$ID_2]="❓"
 
-    TURNS=$((TURNS+1))
+        TURNS=$((TURNS+1))
+    fi
 done
 }
