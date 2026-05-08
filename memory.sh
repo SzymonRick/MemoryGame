@@ -30,7 +30,7 @@ manual() {
     echo "  3. Wybierz rząd, a następnie kolumnę, aby odkryć pierwszą kartę."
     echo "  4. Powtórz czynność dla drugiej karty."
     echo "  5. Jeśli symbole są identyczne - zostają odkryte na stałe."
-    echo "  6. Jeśli symbole są różne - zostaną ponownie zakryte="
+    echo "  6. Jeśli symbole są różne - zostaną ponownie zakryte"
     echo ""
     echo "ZAPISYWANIE WYNIKÓW:"
     echo "  Po odnalezieniu wszystkich par gra zapyta Cię o nazwę."
@@ -45,7 +45,7 @@ manual() {
     exit 0
 }
 
-while getopts "hv" opt; do
+while getopts "hvm" opt; do
     case ${opt} in
         h)
             usage
@@ -69,7 +69,7 @@ shift $((OPTIND -1))
 
 
 # --- CONFIGURACJA ---
-GAME_SCRIPT="./game.sh"
+GAME_SCRIPT="./memory_game.sh"
 HIGHSCORE_FILE="highscores.txt"
 
 touch "$HIGHSCORE_FILE"
@@ -85,7 +85,7 @@ show_menu() {
         "Rekordy" \
         "Wyjdź" \
         --hide-header \
-        --cancel-label="Wyjdź" --ok-label="Wyjdź"
+        --cancel-label="Wyjdź" --ok-label="Graj"
 }
 
 # --- głowna pętla programu ---

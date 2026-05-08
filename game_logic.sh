@@ -82,7 +82,7 @@ game_loop(){
 
         if [[ $EXIT_STATUS -ne 0 && -z "$RAW_BTN" ]]; then exit; fi
         
-        COL_CHOICE=$(echo "$RAW_BTN" | grep -o '[0-9]\+')
+        COL_CHOICE=$(echo "$RAW_BTN" | grep -o '[0-9]\+' | tail -n 1)
         [[ -z "$COL_CHOICE" ]] && continue
         
         COL_NUM=$((COL_CHOICE - 1))
