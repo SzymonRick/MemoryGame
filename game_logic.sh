@@ -20,12 +20,7 @@ create_deck() {
     if [[ -f "$FILE" ]]; then
         read -r -a ALL_SYMBOLS <<< "$(tr ' ' '\n' < "$FILE" | sort -u | tr '\n' ' ')"
     else
-        echo "Error: Config file not found" >&2
-        return 1
-    fi
-
-    if [[ ${#ALL_SYMBOLS[@]} -lt $UNIQUE_REQUIRED ]]; then
-        echo "Error: Not enough symbols in $FILE. Need $UNIQUE_REQUIRED." >&2
+        echo "Błąd: Nie znaleziono pliku $FILE" >&2
         return 1
     fi
 
