@@ -1,6 +1,19 @@
 #!/bin/bash
 
-VERSION="1.0.0"
+# Author           : Szymon Rick
+# Created On       : 6.05.2026
+# Last Modified On : 8.05.2026
+# Version          : 1.0.2
+#
+# Description      :
+#
+# Licensed under GPL (see /usr/share/common-licenses/GPL for more details
+# or contact # the Free Software Foundation for a copy)
+# 
+# Generative AI statement (keep ONE line below, delete the others):
+# * I used GenAI tools for support only (e.g., explanations, debugging, small snippets).
+
+VERSION="1.0.2"
 GAME_TITLE="Memory Game Master"
 
 # --- GETOPTS ---
